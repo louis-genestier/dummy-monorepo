@@ -1,0 +1,56 @@
+name: Publish api image to ECR
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_DEFAULT_REGION: eu-west-3
+  AWS_ECR_REPOSITORY: api-repository
+
+jobs:
+  publish:
+    permissions:
+      actions: write
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      # we need to build api with nx
+      - uses: nrwl/nx-set-shas@v3
+      - name: Install dependencies
+        run: npm ci
+      - name: Build api
+        run: npx nx build api
+      # - name: Get affected apps
+      #   id: nx-affected
+      #   run: |
+      #     echo "AFFECTED_APP=$(npx nx show projects --affected)" >> "$GITHUB_OUTPUT"
+      # - if: ${{!contains(steps.nx-affected.outputs.AFFECTED_APP , 'api')}}
+      #   name: Early exit, API is not affected
+      #   run: |
+      #     gh run cancel ${{ github.run_id }}
+      #     gh run watch ${{ github.run_id }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.AWS_ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./apps/api/
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"

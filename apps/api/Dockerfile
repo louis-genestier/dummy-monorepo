@@ -8,11 +8,7 @@ WORKDIR /app
 RUN addgroup --system api && \
           adduser --system -G api api
 
-COPY dist/apps/api api
+COPY . api
 RUN chown -R api:api .
 
-# You can remove this install step if you build with `--bundle` option.
-# The bundled output will include external dependencies.
-RUN npm --prefix api --omit=dev -f install
-
-CMD [ "node", "api" ]
+CMD [ "node", "api/main.js" ]

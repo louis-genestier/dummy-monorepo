@@ -16,7 +16,6 @@ server.register(cors, {
   origin: '*',
 });
 
-// Start listening.
 server.listen({ port, host }, (err) => {
   if (err) {
     server.log.error(err);
